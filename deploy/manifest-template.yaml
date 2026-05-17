@@ -1,0 +1,127 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloud-controller-manager
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-controller-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: cloud-controller-manager
+  namespace: kube-system
+---
+# Per-controller ServiceAccount impersonated by the CCM when
+# --use-service-account-credentials=true. The traffic-split reconciler uses
+# ControllerClientBuilder.Client("traffic-split-controller") to mint a scoped
+# token; kube-apiserver enforces RBAC against this SA.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traffic-split-controller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traffic-split-controller
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: traffic-split-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traffic-split-controller
+subjects:
+  - kind: ServiceAccount
+    name: traffic-split-controller
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloud-controller-manager-config
+  namespace: kube-system
+data:
+  cloud-config: |
+    [Global]
+    api-url       = {{MASTER_URL}}/api/internal/cluster-controller/v1
+    token-path    = /etc/controller/token
+    cluster-id    = {{CLUSTER_ID}}
+    region        = {{REGION}}
+    ssl-no-verify = false
+---
+# The Secret containing the CCM JWT must be created separately:
+#   kubectl create secret generic cluster-controller-token \
+#     --from-file=token=token.txt -n kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-controller-manager
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloud-controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloud-controller-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cloud-controller-manager
+    spec:
+      serviceAccountName: cloud-controller-manager
+      tolerations:
+      - key: "node.cloudprovider.kubernetes.io/uninitialized"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: cloud-controller-manager
+        image: {{IMAGE}}
+        args:
+        - --cloud-provider=external-hypervisor
+        - --cloud-config=/etc/cloud-config/cloud-config
+        - --leader-elect=true
+        - --use-service-account-credentials=true
+        - --controllers=cloud-node,cloud-node-lifecycle,service
+        - --v=2
+        volumeMounts:
+        - name: cloud-config
+          mountPath: /etc/cloud-config
+          readOnly: true
+        - name: token
+          mountPath: /etc/controller
+          readOnly: true
+      volumes:
+      - name: cloud-config
+        configMap:
+          name: cloud-controller-manager-config
+      - name: token
+        secret:
+          secretName: cluster-controller-token
