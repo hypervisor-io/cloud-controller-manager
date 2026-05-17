@@ -96,4 +96,3 @@ Outputs the rendered manifest to stdout. Pipe to `kubectl apply -f -`.
 - [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) - Service annotations reference
 - [docs/SERVICE-LOADBALANCER.md](docs/SERVICE-LOADBALANCER.md) - LB lifecycle details
 - [docs/README.md](docs/README.md) - documentation index
-so tr
