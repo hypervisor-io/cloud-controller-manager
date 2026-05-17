@@ -67,6 +67,34 @@ type InstanceMetadata struct {
 	Shutdown     bool      `json:"shutdown"`
 }
 
+// TrafficSplitEntry is a single weighted backend in a traffic-split rule.
+// The CCM resolves the child Service to NodePort + (optional) health-check
+// NodePort, and passes that to the platform so HAProxy can target nodes
+// directly without going back through kube-proxy.
+type TrafficSplitEntry struct {
+	RefName             string `json:"ref_name"`
+	RefNamespace        string `json:"ref_namespace"`
+	Weight              int    `json:"weight"`
+	NodePort            int    `json:"node_port"`
+	HealthCheckNodePort int    `json:"health_check_node_port,omitempty"`
+}
+
+// MatchSpec describes a routing predicate for a per-rule traffic split
+// (e.g. SNI host, path prefix). Nil means "default backend for the
+// frontend port".
+type MatchSpec struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// TrafficSplitRequest is the body sent to PATCH /lb/service/{id}/traffic-split.
+// Entries[].Weight is relative (HAProxy normalizes to total).
+type TrafficSplitRequest struct {
+	Entries      []TrafficSplitEntry `json:"entries"`
+	FrontendPort int                 `json:"frontend_port"`
+	Match        *MatchSpec          `json:"match,omitempty"`
+}
+
 type AnnotationError struct {
 	Code    string `json:"code"`
 	Field   string `json:"field,omitempty"`
