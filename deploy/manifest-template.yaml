@@ -19,19 +19,21 @@ subjects:
   namespace: kube-system
 ---
 # Per-controller ServiceAccount impersonated by the CCM when
-# --use-service-account-credentials=true. The traffic-split reconciler uses
-# ControllerClientBuilder.Client("traffic-split-controller") to mint a scoped
-# token; kube-apiserver enforces RBAC against this SA.
+# --use-service-account-credentials=true. The traffic-split reconciler in
+# hypervisor.go calls ControllerClientBuilder.Client("hypervisor-traffic-split")
+# so the SA name MUST match that string exactly; otherwise kube-apiserver
+# rejects every list/watch with `forbidden: User
+# "system:serviceaccount:kube-system:hypervisor-traffic-split" cannot list ...`.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: traffic-split-controller
+  name: hypervisor-traffic-split
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: traffic-split-controller
+  name: hypervisor-traffic-split
 rules:
   - apiGroups: [""]
     resources: ["services"]
@@ -46,14 +48,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: traffic-split-controller
+  name: hypervisor-traffic-split
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: traffic-split-controller
+  name: hypervisor-traffic-split
 subjects:
   - kind: ServiceAccount
-    name: traffic-split-controller
+    name: hypervisor-traffic-split
     namespace: kube-system
 ---
 apiVersion: v1

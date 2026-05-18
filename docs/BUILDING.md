@@ -1,4 +1,4 @@
-# Building cloud-controller-manager
+# Building cloud-controller-manager-hypervisor
 
 ## Local binary
 
@@ -15,7 +15,7 @@ make image                      # local tag
 make image push REGISTRY=ghcr.io/<org>
 ```
 
-The Dockerfile is multi-stage and produces a distroless final image. The default tag is `$(REGISTRY)/cloud-controller-manager:$(VERSION)` where `VERSION` is `git describe` output (or `dev`).
+The Dockerfile is multi-stage and produces a distroless final image. The default tag is `$(REGISTRY)/cloud-controller-manager-hypervisor:$(VERSION)` where `VERSION` is `git describe` output (or `dev`).
 
 ## Pushing to ghcr.io
 

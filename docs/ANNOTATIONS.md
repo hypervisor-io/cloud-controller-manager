@@ -10,7 +10,7 @@ All annotations use the prefix `service.beta.kubernetes.io/managed-loadbalancer-
 
 | Annotation | Type | Description |
 |---|---|---|
-| `plan` | string | Name of an LbPlan enabled for the cluster's region. Required — Service creation fails with a Kubernetes Event if missing. |
+| `plan` | string | Name of an LbPlan enabled for the cluster's region. Required - Service creation fails with a Kubernetes Event if missing. |
 
 ## Optional
 
@@ -21,32 +21,33 @@ All annotations use the prefix `service.beta.kubernetes.io/managed-loadbalancer-
 | `proxy-protocol` | `v1`/`v2`/bool | `false` | Send PROXY protocol header to backends. v2 is binary, v1 is text. Backend MUST parse the protocol header or it 502s every request. |
 | `ssl-redirect` | bool | `false` | Add HTTP→HTTPS 301 redirect on HTTP-mode frontends (port ≠ 443). Skips ACME challenge path so Let's Encrypt renewals still work. Mirrors AWS `aws-load-balancer-ssl-redirect`. |
 | `routing-rules` | JSON | (none) | Array of routing rule objects for SNI/path/host matching. See "Routing rules" below. |
+| `traffic-split` | JSON | (none) | Array of weighted child-Service references for blue/green and canary releases. See "Traffic split" below. |
 | `port-{N}-<key>` | * | (falls back to global `<key>`) | Per-port override. Any of: `backend-protocol`, `ssl-mode`, `ssl-domain`, `ssl-cert`, `ssl-key`. |
 
 ### Per-annotation YAML snippets
 
 ```yaml
-# public — set false for VPC-internal-only LB (no public IP allocated)
+# public - set false for VPC-internal-only LB (no public IP allocated)
 service.beta.kubernetes.io/managed-loadbalancer-public: "false"
 ```
 
 ```yaml
-# source-ranges — restrict who can reach the LB at the firewall layer
+# source-ranges - restrict who can reach the LB at the firewall layer
 service.beta.kubernetes.io/managed-loadbalancer-source-ranges: "10.0.0.0/8,1.2.3.4/32"
 ```
 
 ```yaml
-# proxy-protocol v2 (binary) — pods need haproxy/nginx proxy-protocol support
+# proxy-protocol v2 (binary) - pods need haproxy/nginx proxy-protocol support
 service.beta.kubernetes.io/managed-loadbalancer-proxy-protocol: "v2"
 ```
 
 ```yaml
-# proxy-protocol v1 (text) — older format; same backend caveat
+# proxy-protocol v1 (text) - older format; same backend caveat
 service.beta.kubernetes.io/managed-loadbalancer-proxy-protocol: "v1"
 ```
 
 ```yaml
-# ssl-redirect — auto 301 http://… → https://…
+# ssl-redirect - auto 301 http://… → https://…
 # (requires backend-protocol: http and a port-80 frontend)
 metadata:
   annotations:
@@ -67,27 +68,27 @@ spec:
 ```
 
 ```yaml
-# public-ip — reserve a specific IP (must be owned by the cluster's user)
+# public-ip - reserve a specific IP (must be owned by the cluster's user)
 service.beta.kubernetes.io/managed-loadbalancer-public-ip: "170.205.54.77"
 ```
 
 ```yaml
-# vpc-only — VPC-internal LB, no public IP allocated
+# vpc-only - VPC-internal LB, no public IP allocated
 service.beta.kubernetes.io/managed-loadbalancer-vpc-only: "true"
 ```
 
 ```yaml
-# ha — active-passive failover (requires HA-capable LbPlan)
+# ha - active-passive failover (requires HA-capable LbPlan)
 service.beta.kubernetes.io/managed-loadbalancer-ha: "true"
 ```
 
 ```yaml
-# firewall — disable to make the LB wide-open (NOT recommended)
+# firewall - disable to make the LB wide-open (NOT recommended)
 service.beta.kubernetes.io/managed-loadbalancer-firewall: "false"
 ```
 | `public-ip` | string | (auto) | Reserve a specific public IP (must be owned by the cluster's user). |
-| `vpc-only` | bool | `false` | If true, no public IP — VPC-internal only. |
-| `ha` | bool | `false` | Enable HA (active-passive) — requires HA-capable LbPlan. |
+| `vpc-only` | bool | `false` | If true, no public IP - VPC-internal only. |
+| `ha` | bool | `false` | Enable HA (active-passive) - requires HA-capable LbPlan. |
 | `firewall` | bool | `true` | Enable LB firewall (otherwise wide-open). |
 
 ## Example
@@ -207,13 +208,13 @@ spec:
     targetPort: 80           # Pod plain HTTP; LB terminates TLS
 ```
 
-`tcp` (default) keeps the LB as a transparent L4 passthrough — pods see the
+`tcp` (default) keeps the LB as a transparent L4 passthrough - pods see the
 original TLS bytes if any. Use `http` whenever the LB itself terminates TLS
 or you want HTTP-aware health checks.
 
 ## Health checks (active)
 
-HAProxy probes each backend periodically. Defaults are sensible — override
+HAProxy probes each backend periodically. Defaults are sensible - override
 only what you need.
 
 | Annotation | Type | Default | Description |
@@ -242,7 +243,7 @@ metadata:
 ## Passive checks (observe live traffic)
 
 HAProxy can also watch real traffic and mark a server down on repeated
-errors — cheaper than active probing alone and catches failures that only
+errors - cheaper than active probing alone and catches failures that only
 manifest under load.
 
 | Annotation | Type | Default | Description |
@@ -259,7 +260,7 @@ metadata:
     service.beta.kubernetes.io/managed-loadbalancer-passive-check-on-error: mark-down
 ```
 
-Layer is picked automatically — `layer7` when backend mode is http, else
+Layer is picked automatically - `layer7` when backend mode is http, else
 `layer4`.
 
 ## Security groups
@@ -290,7 +291,7 @@ and `<key>` is one of: `backend-protocol`, `ssl-mode`, `ssl-domain`,
 annotation is used. If neither is set, the documented default applies.
 
 This lets a single Service expose plain TCP, Let's Encrypt-terminated HTTPS,
-inline-cert HTTPS, and another raw TCP port — all from one LB.
+inline-cert HTTPS, and another raw TCP port - all from one LB.
 
 ```yaml
 apiVersion: v1
@@ -300,15 +301,15 @@ metadata:
   annotations:
     service.beta.kubernetes.io/managed-loadbalancer-plan: std-1g
 
-    # Port 80 — plain HTTP passthrough (default TCP mode, no SSL)
+    # Port 80 - plain HTTP passthrough (default TCP mode, no SSL)
     service.beta.kubernetes.io/managed-loadbalancer-port-80-backend-protocol: tcp
 
-    # Port 443 — HTTP mode + Let's Encrypt for web.example.com
+    # Port 443 - HTTP mode + Let's Encrypt for web.example.com
     service.beta.kubernetes.io/managed-loadbalancer-port-443-backend-protocol: http
     service.beta.kubernetes.io/managed-loadbalancer-port-443-ssl-mode: letsencrypt
     service.beta.kubernetes.io/managed-loadbalancer-port-443-ssl-domain: web.example.com
 
-    # Port 8443 — HTTP mode + inline cert for api.example.com
+    # Port 8443 - HTTP mode + inline cert for api.example.com
     service.beta.kubernetes.io/managed-loadbalancer-port-8443-backend-protocol: http
     service.beta.kubernetes.io/managed-loadbalancer-port-8443-ssl-mode: inline
     service.beta.kubernetes.io/managed-loadbalancer-port-8443-ssl-domain: api.example.com
@@ -317,7 +318,7 @@ metadata:
     service.beta.kubernetes.io/managed-loadbalancer-port-8443-ssl-key: |
       <base64 PEM private key>
 
-    # Port 5432 — raw TCP passthrough to Postgres pods
+    # Port 5432 - raw TCP passthrough to Postgres pods
     service.beta.kubernetes.io/managed-loadbalancer-port-5432-backend-protocol: tcp
 spec:
   type: LoadBalancer
@@ -361,12 +362,12 @@ Schema:
 |---|---|---|
 | `port` | yes | LB frontend port the rule applies to. Must exist in `spec.ports`. |
 | `match` | yes | One of `sni`, `path`, `host`. |
-| `value` | yes | Matched value — domain for `sni`/`host`, URL prefix for `path`. |
+| `value` | yes | Matched value - domain for `sni`/`host`, URL prefix for `path`. |
 | `ssl_domain` | sni only | Per-rule Let's Encrypt domain. Issued separately and added to the frontend's crt-list. |
 
 ### SNI multi-domain on one port
 
-Most common case — one port 443, multiple TLS certs, HAProxy picks the right
+Most common case - one port 443, multiple TLS certs, HAProxy picks the right
 cert from the ClientHello SNI extension.
 
 ```yaml
@@ -401,7 +402,7 @@ sends no SNI or sends an unknown hostname). Each rule adds its own cert.
 
 ### Path-based routing
 
-Route by URL path prefix — useful for splitting `/api` vs `/` to different
+Route by URL path prefix - useful for splitting `/api` vs `/` to different
 backend pools. No `ssl_domain` needed; TLS termination is governed by the
 global `ssl-*` annotations.
 
@@ -485,9 +486,106 @@ update:
   `ssl_domain` is no longer referenced).
 - Setting the annotation to `[]` wipes all rules.
 - **Unsetting the annotation entirely** (removing the key) leaves existing
-  rules alone — useful when transitioning management of routing back to a
+  rules alone - useful when transitioning management of routing back to a
   human operator.
+
+## Traffic split (weighted backends)
+
+Split traffic across **multiple child Services** with relative weights. The canonical use case is blue/green and canary deploys: keep `app-blue` Service taking 95% of traffic while `app-green` takes 5%, then shift the weights as confidence grows.
+
+Two forms:
+
+| Form | Annotation | Applies to | Match |
+|---|---|---|---|
+| Standalone | `traffic-split` | every frontend port on the parent Service | none (catch-all) |
+| Embedded | `routing-rules[].backends` | one routing rule | the rule's `match`+`value` |
+
+Schema (both forms share the child object):
+
+```json
+[
+  {"service": "app-blue",  "namespace": "production", "weight": 80},
+  {"service": "app-green", "namespace": "production", "weight": 20}
+]
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `service` | yes | Child Service name in the same K8s cluster. |
+| `namespace` | no | Defaults to the parent Service's namespace. |
+| `weight` | yes | Integer 0-1000. **Relative**, not percent - `[80,20]` and `[400,100]` behave identically; HAProxy normalises. `weight: 0` drains a backend without removing it. |
+
+The parent Service still needs a normal `spec.selector` + `ports` block. The selector's pods serve traffic only if the split list also includes the parent Service's own name (otherwise the selector is effectively dead weight - the parent acts purely as the LB anchor). Most deployments leave the parent's selector pointing at one of the split children and never rely on it directly.
+
+### Blue / green (standalone)
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  annotations:
+    service.beta.kubernetes.io/managed-loadbalancer-plan: std-1g
+    service.beta.kubernetes.io/managed-loadbalancer-backend-protocol: http
+    service.beta.kubernetes.io/managed-loadbalancer-traffic-split: |
+      [
+        {"service": "web-blue",  "weight": 100},
+        {"service": "web-green", "weight": 0}
+      ]
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+```
+
+Cut over by flipping the weights to `[0, 100]` (one `kubectl apply`). The split applies to **every port** in `spec.ports`.
+
+### Canary (embedded under a routing rule)
+
+Same `routing-rules` schema as above, with a `backends` field on the rule that should split:
+
+```yaml
+service.beta.kubernetes.io/managed-loadbalancer-routing-rules: |
+  [
+    {
+      "port": 443,
+      "match": "host",
+      "value": "admin.example.com",
+      "backends": [
+        {"service": "admin-v1", "weight": 95},
+        {"service": "admin-v2", "weight": 5}
+      ]
+    },
+    {
+      "port": 443,
+      "match": "host",
+      "value": "www.example.com"
+    }
+  ]
+```
+
+`admin.example.com` requests are split 95/5 between `admin-v1` and `admin-v2`. `www.example.com` requests follow the rule's implicit single-backend path (parent Service's selector).
+
+### Why CCM resolves this client-side
+
+The master cannot map a Service name to a NodePort on its own - that lookup needs the K8s informer cache. The CCM (`pkg/annotation/trafficsplit.go`) resolves each `service`+`namespace` to `node_port` + `health_check_node_port` and submits the resolved entries via `PATCH /lb/service/{id}/traffic-split` (`pkg/api/client.go:117-124`, `pkg/api/types.go:70-96`). HAProxy then targets `node:NodePort` directly per child, bypassing kube-proxy's load-balancing layer (so the weights aren't smeared by two layers of LB).
+
+### Reconciliation
+
+`traffic-split` reconciles to the `LbTrafficSplit` + `LbTrafficSplitChild` tables on each Service update:
+
+- Adding a child object inserts a new child row.
+- Removing a child removes its row and any HAProxy `server` line tied to it.
+- Setting the annotation to `[]` wipes the split (parent's selector resumes serving 100%).
+- **Unsetting the annotation entirely** leaves the split intact - same opt-out pattern as `routing-rules`.
+
+If a referenced child Service does not exist (or has no Endpoints), the CCM raises a `CreateLoadBalancerFailed` Event with `unresolved_service` and the offending name. The split is not partially applied - either every child resolves or none do.
 
 ## Errors
 
-If an annotation is invalid or missing, `kubectl describe svc web` shows a `Warning  CreateLoadBalancerFailed` Event with the error code (e.g. `missing_annotation`, `unknown_lb_plan`, `lb_plan_not_in_region`, `plan_not_ha_capable`, `invalid_cidr`).
+If an annotation is invalid or missing, `kubectl describe svc web` shows a `Warning  CreateLoadBalancerFailed` Event with the error code (e.g. `missing_annotation`, `unknown_lb_plan`, `lb_plan_not_in_region`, `plan_not_ha_capable`, `invalid_cidr`, `unresolved_service`).

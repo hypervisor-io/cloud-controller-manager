@@ -6,7 +6,7 @@ The CCM reads its config from a gcfg-style INI file (mounted as a ConfigMap volu
 
 ```ini
 [Global]
-api-url       = https://panel.example.com/api/internal/cluster-controller/v1
+api-url       = https://master.example.com/api/internal/cluster-controller/v1
 token-path    = /etc/controller/token
 cluster-id    = 11111111-1111-1111-1111-111111111111
 region        = hg-eu-west-1

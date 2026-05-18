@@ -1,13 +1,31 @@
 package hypervisor
 
 import (
+	"os"
 	"regexp"
 )
 
 const (
-	ProviderName     = "external-hypervisor"
-	AnnotationPrefix = "service.beta.kubernetes.io/hypervisor-loadbalancer-"
+	ProviderName = "external-hypervisor"
+
+	// defaultAnnotationPrefix matches the master's default
+	// `kubernetes.annotation_prefix` config (see config/kubernetes.php).
+	// Operators that white-label by setting K8S_ANNOTATION_PREFIX on master
+	// must also export ANNOTATION_PREFIX on the CCM Deployment so both ends
+	// agree on the key, otherwise CCM-side annotation parsers (traffic-split,
+	// routing-rules) silently skip the Service.
+	defaultAnnotationPrefix = "service.beta.kubernetes.io/managed-loadbalancer-"
 )
+
+// AnnotationPrefix is read from the ANNOTATION_PREFIX env var at process start,
+// falling back to defaultAnnotationPrefix. It's a var (not const) so callers
+// can override in tests; production code treats it as read-only.
+var AnnotationPrefix = func() string {
+	if v := os.Getenv("ANNOTATION_PREFIX"); v != "" {
+		return v
+	}
+	return defaultAnnotationPrefix
+}()
 
 var providerIDRegex = regexp.MustCompile(`^hypervisor:///([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`)
 

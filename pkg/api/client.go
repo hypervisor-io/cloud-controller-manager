@@ -114,28 +114,6 @@ func (c *Client) SyncHosts(lbID string, req SyncHostsRequest) ([]Host, error) {
 	return body.Hosts, nil
 }
 
-// SyncTrafficSplit upserts a weighted-backend split rule for one
-// (frontend_port, match) pair on the load balancer. The platform PATCHes
-// the underlying HAProxy backend list and reconciles weights.
-//
-// Idempotent: re-posting the same Entries is a no-op; changed weights
-// trigger a config re-render.
-func (c *Client) SyncTrafficSplit(lbID string, req TrafficSplitRequest) (*LoadBalancer, error) {
-	resp, err := c.request("PATCH", "/lb/service/"+lbID+"/traffic-split", req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return nil, decodeAnnotationError(resp)
-	}
-	var lb LoadBalancer
-	if err := json.NewDecoder(resp.Body).Decode(&lb); err != nil {
-		return nil, err
-	}
-	return &lb, nil
-}
-
 func (c *Client) DeleteLoadBalancer(lbID string) error {
 	resp, err := c.request("DELETE", "/lb/service/"+lbID, nil)
 	if err != nil {

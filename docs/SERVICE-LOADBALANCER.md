@@ -322,9 +322,13 @@ control-plane LB. Service LBs are linked exclusively via
 ## Local development
 
 ```
-cd cloud-controller-manager
-make test            # unit tests, no platform required
+cd cloud-controller-manager-hypervisor
+make test            # unit tests, no master required
+make e2e             # spins kind cluster, points CCM at a dev master
 ```
+
+Master-side bridge tests:
+`tests/Feature/Kubernetes/K8sLoadBalancerBridgeServiceTest.php`.
 
 ---
 
@@ -334,15 +338,16 @@ make test            # unit tests, no platform required
 # Watch a Service get an IP
 kubectl get svc -w
 
-# Inspect the LB UID used as the platform-side correlation key
+# Inspect master's view of the LB
 kubectl get svc web -o jsonpath='{.metadata.uid}'
+# … then on master:
+# php artisan tinker --execute='dump(\App\Models\LoadBalancer::where("service_uid","<uid>")->first()->toArray());'
 
-# Check SSL state via annotations
+# Check SSL state
 kubectl get svc web -o jsonpath='{.metadata.annotations}' | jq
+# on master:
+# php artisan tinker --execute='dump(\App\Models\LbCertificate::where("load_balancer_id","<lb_id>")->get()->toArray());'
 
-# Force re-sync (rare - useful if CCM is wedged)
+# Force re-sync (rare — useful if CCM is wedged)
 kubectl annotate svc web service.beta.kubernetes.io/managed-loadbalancer-force-sync=$(date +%s) --overwrite
-
-# Tail CCM logs
-kubectl -n kube-system logs deploy/cloud-controller-manager -f
 ```

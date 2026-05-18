@@ -1,4 +1,4 @@
-# cloud-controller-manager
+# cloud-controller-manager-hypervisor
 
 Kubernetes Cloud Controller Manager (CCM) for Hypervisor.io clusters. Implements the upstream `cloudprovider.Interface` to provision LoadBalancers (Service: type=LoadBalancer) and populate Node metadata against the Hypervisor.io platform.
 
@@ -24,7 +24,7 @@ make image push REGISTRY=ghcr.io/<your-org>
 php artisan kubernetes:mint-token --cluster=<cluster-uuid> --role=ccm > token.txt
 
 # 3. Render manifest
-make manifest CLUSTER_ID=<cluster-uuid> MASTER_URL=https://panel.example.com REGION=<region-slug> > rendered.yaml
+make manifest CLUSTER_ID=<cluster-uuid> MASTER_URL=https://master.example.com REGION=<region-slug> > rendered.yaml
 
 # 4. Apply to cluster
 kubectl apply -f rendered.yaml
@@ -34,7 +34,7 @@ kubectl create secret generic cluster-controller-token \
   --from-file=token=token.txt -n kube-system
 
 # 6. Verify rollout
-kubectl -n kube-system rollout status deploy cloud-controller-manager
+kubectl -n kube-system rollout status deploy cloud-controller-manager-hypervisor
 ```
 
 See `docs/DEPLOYMENT.md` for full step-by-step.

@@ -1,10 +1,10 @@
-# Deploying cloud-controller-manager
+# Deploying cloud-controller-manager-hypervisor
 
 ## Prerequisites
 
 - A running Hypervisor.io Kubernetes cluster (state=running)
 - Kubernetes admin access (`kubectl`)
-- `cloud-controller-manager` image accessible to your cluster nodes (see `BUILDING.md` for push instructions)
+- `cluster-controller-manager-hypervisor` image accessible to your cluster nodes (see `BUILDING.md` for push instructions)
 - A controller JWT for the target cluster (see step 2 below)
 
 ## Steps
@@ -24,7 +24,7 @@ The output is a single JWT line. Save it to `token.txt`.
 ```bash
 make manifest \
   CLUSTER_ID=<cluster-uuid> \
-  MASTER_URL=https://panel.example.com \
+  MASTER_URL=https://master.example.com \
   REGION=<region-slug> \
   REGISTRY=ghcr.io/<org> \
   > rendered.yaml
@@ -49,8 +49,8 @@ kubectl create secret generic cluster-controller-token \
 ### 5. Verify the deployment
 
 ```bash
-kubectl -n kube-system rollout status deploy cloud-controller-manager
-kubectl -n kube-system logs deploy/cloud-controller-manager -f
+kubectl -n kube-system rollout status deploy cloud-controller-manager-hypervisor
+kubectl -n kube-system logs deploy/cloud-controller-manager-hypervisor -f
 ```
 
 ## Token rotation

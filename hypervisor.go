@@ -57,18 +57,7 @@ func newHypervisor(r io.Reader) (cloudprovider.Interface, error) {
 	return h, nil
 }
 
-func (h *hypervisor) Initialize(builder cloudprovider.ControllerClientBuilder, stopCh <-chan struct{}) {
-	// Launch the traffic-split controller. It watches LoadBalancer-type
-	// Services + EndpointSlices for the parent annotations and PATCHes
-	// the platform with resolved child NodePorts. Runs independently of
-	// the upstream service-controller's EnsureLoadBalancer loop.
-	kc, err := builder.Client("hypervisor-traffic-split")
-	if err != nil {
-		// Non-fatal: traffic-split is optional. Other controllers still work.
-		return
-	}
-	go runTrafficSplitController(h.client, kc, stopCh)
-}
+func (h *hypervisor) Initialize(_ cloudprovider.ControllerClientBuilder, _ <-chan struct{}) {}
 func (h *hypervisor) LoadBalancer() (cloudprovider.LoadBalancer, bool) { return h.lb, true }
 func (h *hypervisor) Instances() (cloudprovider.Instances, bool)       { return nil, false }
 func (h *hypervisor) InstancesV2() (cloudprovider.InstancesV2, bool)   { return h.inst, true }

@@ -16,7 +16,7 @@ build:
 	CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -o bin/cloud-controller-manager ./cmd/cloud-controller-manager
 
 image:
-	docker build --provenance=false --sbom=false -t $(IMAGE) .
+	docker build -t $(IMAGE) .
 	@echo "Built: $(IMAGE)"
 
 push:
