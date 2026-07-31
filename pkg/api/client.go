@@ -114,6 +114,28 @@ func (c *Client) SyncHosts(lbID string, req SyncHostsRequest) ([]Host, error) {
 	return body.Hosts, nil
 }
 
+// SyncTrafficSplit PATCHes the traffic-split overlay for lbID. The master
+// endpoint currently returns 501 (not implemented — see
+// ClusterControllerLoadBalancerController::trafficSplit in the Master repo);
+// this method exists so the CCM module compiles against the design-doc
+// contract (§3.2) and is ready once the master-side bridge lands. It is not
+// called by any running controller yet.
+func (c *Client) SyncTrafficSplit(lbID string, req TrafficSplitRequest) (*TrafficSplitResponse, error) {
+	resp, err := c.request("PATCH", "/lb/service/"+lbID+"/traffic-split", req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, decodeAnnotationError(resp)
+	}
+	var out TrafficSplitResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) DeleteLoadBalancer(lbID string) error {
 	resp, err := c.request("DELETE", "/lb/service/"+lbID, nil)
 	if err != nil {

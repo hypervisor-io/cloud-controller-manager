@@ -409,8 +409,14 @@ func (c *trafficSplitController) dropParent(parentKey string) {
 
 // runTrafficSplitController boots a SharedInformerFactory around the
 // given kubernetes.Interface and runs the controller until stopCh closes.
-// This is invoked from hypervisor.Initialize where the upstream framework
-// hands us a ControllerClientBuilder.
+// This would be invoked from hypervisor.Initialize where the upstream
+// framework hands us a ControllerClientBuilder — but it is NOT currently
+// called from anywhere (Initialize is a deliberate no-op, see hypervisor.go).
+// The master-side traffic-split endpoint this controller PATCHes is a 501
+// stub today; starting this controller before the master feature exists
+// would just reconcile-loop against a permanent 501. Wire this in once
+// docs/superpowers/specs/2026-05-16-kubernetes-lb-traffic-split-design.md
+// stages 1-2 (schema + master endpoint + bridge) ship.
 func runTrafficSplitController(client *api.Client, kc kubernetes.Interface, stopCh <-chan struct{}) {
 	factory := informers.NewSharedInformerFactory(kc, 5*time.Minute)
 	ctrl := newTrafficSplitController(client, factory)

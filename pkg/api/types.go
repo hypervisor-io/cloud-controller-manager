@@ -53,6 +53,38 @@ type SyncHostsRequest struct {
 	Remove []string `json:"remove"`
 }
 
+// MatchSpec, TrafficSplitEntry, TrafficSplitRequest and TrafficSplitResponse
+// mirror the PATCH /lb/service/{lb_id}/traffic-split contract in
+// docs/superpowers/specs/2026-05-16-kubernetes-lb-traffic-split-design.md
+// §3.1-3.2 (Master repo). The master-side endpoint currently returns 501
+// (not implemented) — see ClusterControllerLoadBalancerController::trafficSplit
+// — so these types exist to make the CCM module compile; SyncTrafficSplit is
+// not wired into any running controller yet (see runTrafficSplitController).
+type MatchSpec struct {
+	Type  string `json:"type"` // sni|path|host
+	Value string `json:"value"`
+}
+
+type TrafficSplitEntry struct {
+	RefName             string `json:"ref_name"`
+	RefNamespace        string `json:"ref_namespace"`
+	Weight              int    `json:"weight"`
+	NodePort            int    `json:"node_port"`
+	HealthCheckNodePort int    `json:"health_check_node_port,omitempty"`
+}
+
+type TrafficSplitRequest struct {
+	Entries      []TrafficSplitEntry `json:"entries"`
+	FrontendPort int                 `json:"frontend_port"`
+	Match        *MatchSpec          `json:"match,omitempty"`
+}
+
+type TrafficSplitResponse struct {
+	RuleID       string   `json:"rule_id"`
+	BackendIDs   []string `json:"backend_ids"`
+	StaleRemoved []string `json:"stale_removed"`
+}
+
 type Address struct {
 	Type    string `json:"type"`
 	Address string `json:"address"`
