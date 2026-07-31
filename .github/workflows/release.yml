@@ -50,7 +50,6 @@ jobs:
           # needs tags and history rather than a depth-1 checkout.
           fetch-depth: 0
 
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to ghcr.io
@@ -76,7 +75,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: the hypervisor fleet is x86 (KVM and Proxmox), so an
+          # arm64 image has no consumer. Building it meant emulating arm64 under
+          # QEMU, which dominated the release time (~30 min against ~2). Add the
+          # platform back here, with setup-qemu-action above it, if ARM nodes
+          # ever land.
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
