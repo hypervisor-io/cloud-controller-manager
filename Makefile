@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-REGISTRY ?= ghcr.io/REPLACE-ME
+REGISTRY ?= ghcr.io/hypervisor-io
 IMAGE_NAME ?= cloud-controller-manager
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
 IMAGE := $(REGISTRY)/$(IMAGE_NAME):$(VERSION)

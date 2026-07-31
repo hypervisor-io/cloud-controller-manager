@@ -67,11 +67,11 @@ func newHypervisor(r io.Reader) (cloudprovider.Interface, error) {
 // eligible Service spins a reconcile loop that PATCHes and gets 501 back
 // forever. Wire it up once the master-side feature (spec §3-§4) lands.
 func (h *hypervisor) Initialize(_ cloudprovider.ControllerClientBuilder, _ <-chan struct{}) {}
-func (h *hypervisor) LoadBalancer() (cloudprovider.LoadBalancer, bool) { return h.lb, true }
-func (h *hypervisor) Instances() (cloudprovider.Instances, bool)       { return nil, false }
-func (h *hypervisor) InstancesV2() (cloudprovider.InstancesV2, bool)   { return h.inst, true }
-func (h *hypervisor) Zones() (cloudprovider.Zones, bool)               { return h.zones, true }
-func (h *hypervisor) Clusters() (cloudprovider.Clusters, bool)         { return nil, false }
-func (h *hypervisor) Routes() (cloudprovider.Routes, bool)             { return nil, false }
-func (h *hypervisor) ProviderName() string                             { return ProviderName }
-func (h *hypervisor) HasClusterID() bool                               { return h.cfg.Global.ClusterID != "" }
+func (h *hypervisor) LoadBalancer() (cloudprovider.LoadBalancer, bool)                      { return h.lb, true }
+func (h *hypervisor) Instances() (cloudprovider.Instances, bool)                            { return nil, false }
+func (h *hypervisor) InstancesV2() (cloudprovider.InstancesV2, bool)                        { return h.inst, true }
+func (h *hypervisor) Zones() (cloudprovider.Zones, bool)                                    { return h.zones, true }
+func (h *hypervisor) Clusters() (cloudprovider.Clusters, bool)                              { return nil, false }
+func (h *hypervisor) Routes() (cloudprovider.Routes, bool)                                  { return nil, false }
+func (h *hypervisor) ProviderName() string                                                  { return ProviderName }
+func (h *hypervisor) HasClusterID() bool                                                    { return h.cfg.Global.ClusterID != "" }

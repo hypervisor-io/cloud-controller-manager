@@ -25,19 +25,19 @@ type LoadBalancer struct {
 }
 
 type ServiceCreateRequest struct {
-	ServiceUID            string            `json:"service_uid"`
-	ServiceNamespace      string            `json:"service_namespace"`
-	ServiceName           string            `json:"service_name"`
-	Annotations           map[string]string `json:"annotations"`
-	Ports                 []Port            `json:"ports"`
-	NodeProviderIDs       []string          `json:"node_provider_ids"`
+	ServiceUID       string            `json:"service_uid"`
+	ServiceNamespace string            `json:"service_namespace"`
+	ServiceName      string            `json:"service_name"`
+	Annotations      map[string]string `json:"annotations"`
+	Ports            []Port            `json:"ports"`
+	NodeProviderIDs  []string          `json:"node_provider_ids"`
 	// External traffic policy: "Cluster" (default, SNAT, no source-IP) or
 	// "Local" (route to nodes with local pod only, preserve source IP).
 	ExternalTrafficPolicy string `json:"external_traffic_policy,omitempty"`
 	// Health-check NodePort populated by K8s when ETP=Local. The master uses
 	// this port for haproxy health checks so nodes without a local pod drop
 	// out of the rotation automatically (kube-proxy returns 503 there).
-	HealthCheckNodePort   int    `json:"health_check_node_port,omitempty"`
+	HealthCheckNodePort int `json:"health_check_node_port,omitempty"`
 }
 
 type ServiceUpdateRequest struct {

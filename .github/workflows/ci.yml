@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build + vet + test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # go.mod pins the floor; bump this deliberately when that moves.
+          go-version: "1.23"
+          cache-dependency-path: go.sum
+
+      - run: go mod download
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+
+      # go test IS gated here. The two failures that previously made this
+      # impossible (TestAnnotationGet, TestTokenLoader_LoadAndReload) are
+      # fixed; keep this step green rather than reintroducing a red suite.
+      - run: go test -race ./...
+
+      - run: go build ./cmd/cloud-controller-manager

@@ -22,9 +22,15 @@ func TestParseProviderID(t *testing.T) {
 }
 
 func TestAnnotationGet(t *testing.T) {
+	// Build the keys from AnnotationPrefix rather than restating it. The
+	// literal previously hardcoded here ("...hypervisor-loadbalancer-") had
+	// diverged from the prefix the code actually uses, which is the master's
+	// configured default ("...managed-loadbalancer-", see
+	// config/kubernetes.php and K8sLoadBalancerBridgeService). The test could
+	// not have passed - and never ran, because this package did not compile.
 	a := map[string]string{
-		"service.beta.kubernetes.io/hypervisor-loadbalancer-plan":   "std-1g",
-		"service.beta.kubernetes.io/hypervisor-loadbalancer-public": "true",
+		AnnotationPrefix + "plan":   "std-1g",
+		AnnotationPrefix + "public": "true",
 	}
 	if v, _ := AnnotationGet(a, "plan"); v != "std-1g" {
 		t.Errorf("expected plan=std-1g, got %q", v)
