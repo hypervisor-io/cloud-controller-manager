@@ -56,10 +56,12 @@ type SyncHostsRequest struct {
 // MatchSpec, TrafficSplitEntry, TrafficSplitRequest and TrafficSplitResponse
 // mirror the PATCH /lb/service/{lb_id}/traffic-split contract in
 // docs/superpowers/specs/2026-05-16-kubernetes-lb-traffic-split-design.md
-// §3.1-3.2 (Master repo). The master-side endpoint currently returns 501
-// (not implemented) — see ClusterControllerLoadBalancerController::trafficSplit
-// — so these types exist to make the CCM module compile; SyncTrafficSplit is
-// not wired into any running controller yet (see runTrafficSplitController).
+// §3.1-3.2 (Master repo). The master implements the endpoint from
+// rebrand/vcli-brand (2026-09-07) onward; SyncTrafficSplit is called by
+// the traffic-split controller started from hypervisor.Initialize. An
+// empty non-nil Entries slice encodes as [] and asks the master to drop
+// the CCM-managed split for that frontend port; a nil slice would encode
+// as null and fail the master's present|array validation.
 type MatchSpec struct {
 	Type  string `json:"type"` // sni|path|host
 	Value string `json:"value"`

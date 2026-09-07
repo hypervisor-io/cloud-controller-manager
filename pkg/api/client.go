@@ -114,12 +114,13 @@ func (c *Client) SyncHosts(lbID string, req SyncHostsRequest) ([]Host, error) {
 	return body.Hosts, nil
 }
 
-// SyncTrafficSplit PATCHes the traffic-split overlay for lbID. The master
-// endpoint currently returns 501 (not implemented — see
-// ClusterControllerLoadBalancerController::trafficSplit in the Master repo);
-// this method exists so the CCM module compiles against the design-doc
-// contract (§3.2) and is ready once the master-side bridge lands. It is not
-// called by any running controller yet.
+// SyncTrafficSplit PATCHes the traffic-split overlay for lbID. Masters
+// from rebrand/vcli-brand (2026-09-07) onward implement the endpoint;
+// older masters answer 501 and the calling controller retries with
+// rate-limited backoff. Entries must be non-nil: [] tells the master to
+// drop the CCM-managed split for the frontend port, while null fails its
+// present|array validation. Called by the traffic-split controller
+// started from hypervisor.Initialize.
 func (c *Client) SyncTrafficSplit(lbID string, req TrafficSplitRequest) (*TrafficSplitResponse, error) {
 	resp, err := c.request("PATCH", "/lb/service/"+lbID+"/traffic-split", req)
 	if err != nil {

@@ -43,6 +43,11 @@ type trafficSplitController struct {
 	// for each parent we reconcile. Protected by mu.
 	mu             sync.Mutex
 	childToParents map[string]map[string]struct{}
+
+	// syncedParents holds "ns/name" of parents that have had at least
+	// one successful split PATCH. Drives the one-time clearing PATCH
+	// when the split annotation is later removed. Protected by mu.
+	syncedParents map[string]struct{}
 }
 
 func newTrafficSplitController(client *api.Client, factory informers.SharedInformerFactory) *trafficSplitController {
@@ -56,6 +61,7 @@ func newTrafficSplitController(client *api.Client, factory informers.SharedInfor
 		slicesSync:     sliceInf.Informer().HasSynced,
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "traffic-split"),
 		childToParents: map[string]map[string]struct{}{},
+		syncedParents:  map[string]struct{}{},
 	}
 
 	// Enqueue any Service that's type=LoadBalancer with an annotation
@@ -124,17 +130,20 @@ func (c *trafficSplitController) enqueueIfRelevant(obj any) {
 	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
 		return
 	}
-	if !hasTrafficSplitAnnotation(svc.Annotations) {
+	key := svc.Namespace + "/" + svc.Name
+	if !hasTrafficSplitAnnotation(svc.Annotations) && !c.wasSynced(key) {
+		// Without a split annotation we only care about the Service if
+		// we previously synced a split for it: reconcile then emits the
+		// one-time clearing PATCH.
 		return
 	}
-	key := svc.Namespace + "/" + svc.Name
 	c.queue.Add(key)
 }
 
 func (c *trafficSplitController) enqueueParentsForSlice(obj any) {
 	slice, ok := obj.(*discoveryv1.EndpointSlice)
 	if !ok {
-		// On final-state-unknown tombstones we lose the slice; ignore —
+		// On final-state-unknown tombstones we lose the slice; ignore,
 		// the next periodic resync will pick the parent up.
 		return
 	}
@@ -224,16 +233,33 @@ func (c *trafficSplitController) reconcile(key string) error {
 	c.rebuildIndexForParent(key, parent.Namespace, standalone, ruleSpecs)
 
 	if len(standalone) == 0 && len(ruleSpecs) == 0 {
-		// No split declared (annotations may have been removed). Master
-		// will treat an empty PATCH as "drop CCM-managed splits", but
-		// we only emit that PATCH when there's reason to — i.e. once.
-		// Skip otherwise to avoid spamming master.
+		// No split declared (annotations may have been removed). If we
+		// previously synced a split for this parent, emit one clearing
+		// PATCH per parent port so the master drops the CCM-managed
+		// split, then untrack so it is sent exactly once. Untracked
+		// parents are skipped to avoid spamming master.
+		if c.wasSynced(key) {
+			for _, p := range parent.Spec.Ports {
+				req := api.TrafficSplitRequest{
+					// Empty NON-NIL slice: encodes as [] (the master
+					// validates present|array); nil would encode as
+					// null and fail validation.
+					Entries:      []api.TrafficSplitEntry{},
+					FrontendPort: int(p.Port),
+					Match:        nil,
+				}
+				if _, err := c.client.SyncTrafficSplit(lb.ID, req); err != nil {
+					return fmt.Errorf("clear split %s port %d: %w", key, p.Port, err)
+				}
+			}
+			c.untrackSynced(key)
+		}
 		return nil
 	}
 
 	// Resolve children + emit PATCHes.
 	if len(standalone) > 0 {
-		// Standalone split applies to every parent port — one PATCH per
+		// Standalone split applies to every parent port: one PATCH per
 		// port, match=nil (catch-all).
 		entries, warn := c.resolveChildren(parent, standalone)
 		for _, w := range warn {
@@ -251,6 +277,7 @@ func (c *trafficSplitController) reconcile(key string) error {
 				if _, err := c.client.SyncTrafficSplit(lb.ID, req); err != nil {
 					return fmt.Errorf("sync split %s port %d: %w", key, p.Port, err)
 				}
+				c.trackSynced(key)
 			}
 		}
 	}
@@ -276,6 +303,7 @@ func (c *trafficSplitController) reconcile(key string) error {
 		if _, err := c.client.SyncTrafficSplit(lb.ID, req); err != nil {
 			return fmt.Errorf("sync split %s rule %v: %w", key, spec.Match, err)
 		}
+		c.trackSynced(key)
 	}
 
 	return nil
@@ -299,7 +327,7 @@ func (c *trafficSplitController) resolveChildren(parent *corev1.Service, refs []
 			// v1: master enforces same-namespace policy. Warn here so
 			// operators see the mismatch in CCM logs even when master
 			// rejects.
-			warnings = append(warnings, fmt.Sprintf("traffic-split: cross-namespace ref %s/%s under parent %s/%s — master may reject", ns, ref.Service, parent.Namespace, parent.Name))
+			warnings = append(warnings, fmt.Sprintf("traffic-split: cross-namespace ref %s/%s under parent %s/%s, master may reject", ns, ref.Service, parent.Namespace, parent.Name))
 		}
 		child, err := c.serviceLister.Services(ns).Get(ref.Service)
 		if err != nil {
@@ -399,6 +427,10 @@ func (c *trafficSplitController) rebuildIndexForParent(parentKey, parentNS strin
 func (c *trafficSplitController) dropParent(parentKey string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// Service gone (or no longer a LoadBalancer): the master cascades
+	// the LB delete through the upstream service-controller, so there
+	// is no split left to clear. Forget the sync marker too.
+	delete(c.syncedParents, parentKey)
 	for child, parents := range c.childToParents {
 		delete(parents, parentKey)
 		if len(parents) == 0 {
@@ -407,16 +439,37 @@ func (c *trafficSplitController) dropParent(parentKey string) {
 	}
 }
 
+// trackSynced marks a parent as having had at least one successful split
+// PATCH, so a later annotation removal triggers the clearing PATCH.
+func (c *trafficSplitController) trackSynced(parentKey string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.syncedParents[parentKey] = struct{}{}
+}
+
+// untrackSynced removes the clearing-PATCH marker, e.g. once the one-time
+// clearing PATCH has been sent.
+func (c *trafficSplitController) untrackSynced(parentKey string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.syncedParents, parentKey)
+}
+
+func (c *trafficSplitController) wasSynced(parentKey string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, ok := c.syncedParents[parentKey]
+	return ok
+}
+
 // runTrafficSplitController boots a SharedInformerFactory around the
 // given kubernetes.Interface and runs the controller until stopCh closes.
-// This would be invoked from hypervisor.Initialize where the upstream
-// framework hands us a ControllerClientBuilder — but it is NOT currently
-// called from anywhere (Initialize is a deliberate no-op, see hypervisor.go).
-// The master-side traffic-split endpoint this controller PATCHes is a 501
-// stub today; starting this controller before the master feature exists
-// would just reconcile-loop against a permanent 501. Wire this in once
-// docs/superpowers/specs/2026-05-16-kubernetes-lb-traffic-split-design.md
-// stages 1-2 (schema + master endpoint + bridge) ship.
+// Invoked from hypervisor.Initialize with the clientset obtained via
+// cb.ClientOrDie("traffic-split-controller"), the upstream pattern for
+// provider-owned informers. The master-side PATCH
+// /lb/service/{lb_id}/traffic-split endpoint shipped on 2026-09-07
+// (rebrand/vcli-brand); older masters answer 501 and the controller
+// tolerates that with rate-limited requeues.
 func runTrafficSplitController(client *api.Client, kc kubernetes.Interface, stopCh <-chan struct{}) {
 	factory := informers.NewSharedInformerFactory(kc, 5*time.Minute)
 	ctrl := newTrafficSplitController(client, factory)
