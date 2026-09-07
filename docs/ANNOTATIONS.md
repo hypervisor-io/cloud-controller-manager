@@ -491,6 +491,8 @@ update:
 
 Split traffic across **multiple child Services** with relative weights. The canonical use case is blue/green and canary deploys: keep `app-blue` Service taking 95% of traffic while `app-green` takes 5%, then shift the weights as confidence grows.
 
+Requires a management server that implements `PATCH /lb/service/{lb_id}/traffic-split` (rebrand/vcli-brand from 2026-09-07 onward); older masters answer 501 and the controller retries with backoff.
+
 Two forms:
 
 | Form | Annotation | Applies to | Match |
