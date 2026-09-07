@@ -22,7 +22,8 @@ All annotations use the prefix `service.beta.kubernetes.io/managed-loadbalancer-
 | `ssl-redirect` | bool | `false` | Add HTTP→HTTPS 301 redirect on HTTP-mode frontends (port ≠ 443). Skips ACME challenge path so Let's Encrypt renewals still work. Mirrors AWS `aws-load-balancer-ssl-redirect`. |
 | `routing-rules` | JSON | (none) | Array of routing rule objects for SNI/path/host matching. See "Routing rules" below. |
 | `traffic-split` | JSON | (none) | Array of weighted child-Service references for blue/green and canary releases. See "Traffic split" below. |
-| `port-{N}-<key>` | * | (falls back to global `<key>`) | Per-port override. Any of: `backend-protocol`, `ssl-mode`, `ssl-domain`, `ssl-cert`, `ssl-key`. |
+| `idle-timeout` | integer seconds | (HAProxy default: 50 for http/https, 3600 for tcp) | Idle connection timeout applied as `timeout client` on every frontend the Service creates and `timeout server` on the backends they reference. 30..86400; out-of-range values reject the Service with an Event. |
+| `port-{N}-<key>` | * | (falls back to global `<key>`) | Per-port override. Any of: `backend-protocol`, `ssl-mode`, `ssl-domain`, `ssl-cert`, `ssl-key`, `idle-timeout`. |
 
 ### Per-annotation YAML snippets
 
@@ -78,18 +79,15 @@ service.beta.kubernetes.io/managed-loadbalancer-vpc-only: "true"
 ```
 
 ```yaml
-# ha - active-passive failover (requires HA-capable LbPlan)
-service.beta.kubernetes.io/managed-loadbalancer-ha: "true"
-```
-
-```yaml
-# firewall - disable to make the LB wide-open (NOT recommended)
-service.beta.kubernetes.io/managed-loadbalancer-firewall: "false"
+# idle-timeout - keep long-lived websocket / database connections open
+metadata:
+  annotations:
+    service.beta.kubernetes.io/managed-loadbalancer-idle-timeout: "3600"
+    service.beta.kubernetes.io/managed-loadbalancer-port-5432-idle-timeout: "86400"
 ```
 | `public-ip` | string | (auto) | Reserve a specific public IP (must be owned by the cluster's user). |
 | `vpc-only` | bool | `false` | If true, no public IP - VPC-internal only. |
-| `ha` | bool | `false` | Enable HA (active-passive) - requires HA-capable LbPlan. |
-| `firewall` | bool | `true` | Enable LB firewall (otherwise wide-open). |
+| `internal` | bool | `false` | VPC-internal LB, no public IP allocated. Equivalent to `vpc-only: true` or `public: false`; `vpc-only: true` combined with an explicit `public: true` is rejected with an Event. |
 
 ## Example
 
@@ -287,7 +285,7 @@ recreating the LB.
 Any global annotation can be overridden for a single frontend port using the
 pattern `<prefix>port-{N}-<key>`, where `{N}` is the `spec.ports[].port` value
 and `<key>` is one of: `backend-protocol`, `ssl-mode`, `ssl-domain`,
-`ssl-cert`, `ssl-key`. If a per-port key is unset, the corresponding global
+`ssl-cert`, `ssl-key`, `idle-timeout`. If a per-port key is unset, the corresponding global
 annotation is used. If neither is set, the documented default applies.
 
 This lets a single Service expose plain TCP, Let's Encrypt-terminated HTTPS,

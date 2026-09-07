@@ -65,6 +65,8 @@ message wire format.
   - `lb.hypervisor.io/routing-rules` - SNI/path-based routing rules JSON
   - `lb.hypervisor.io/traffic-split` - weighted multi-backend split
   - `lb.hypervisor.io/health-check-*` - HAProxy health-check overrides
+  - `lb.hypervisor.io/idle-timeout` - idle connection timeout in seconds
+    (30-86400), applied as HAProxy `timeout client`/`timeout server`
   - Full list in [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md)
 - Service of type=LoadBalancer creates a load balancer in the cluster's VPC
   via the panel's LB API; deletion cleans up the backing LB.
