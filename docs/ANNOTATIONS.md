@@ -23,7 +23,9 @@ All annotations use the prefix `service.beta.kubernetes.io/managed-loadbalancer-
 | `routing-rules` | JSON | (none) | Array of routing rule objects for SNI/path/host matching. See "Routing rules" below. |
 | `traffic-split` | JSON | (none) | Array of weighted child-Service references for blue/green and canary releases. See "Traffic split" below. |
 | `idle-timeout` | integer seconds | (HAProxy default: 50 for http/https, 3600 for tcp) | Idle connection timeout applied as `timeout client` on every frontend the Service creates and `timeout server` on the backends they reference. 30..86400; out-of-range values reject the Service with an Event. |
-| `port-{N}-<key>` | * | (falls back to global `<key>`) | Per-port override. Any of: `backend-protocol`, `ssl-mode`, `ssl-domain`, `ssl-cert`, `ssl-key`, `idle-timeout`. |
+| `connect-timeout` | integer seconds | (HAProxy default: 5) | Time to wait for a connection to a backend pod to establish, applied as `timeout connect` on the backends the Service's frontends reference. 1..75; out-of-range values reject the Service with an Event. |
+| `server-timeout` | integer seconds | (falls back to `idle-timeout`) | Maximum time a backend pod has to respond once connected, applied as `timeout server` on the backends the Service's frontends reference - this ONE setting covers both `proxy-read-timeout` and `proxy-send-timeout` from nginx-ingress, since HAProxy has no separate read and send timeout. 1..86400; out-of-range values reject the Service with an Event. |
+| `port-{N}-<key>` | * | (falls back to global `<key>`) | Per-port override. Any of: `backend-protocol`, `ssl-mode`, `ssl-domain`, `ssl-cert`, `ssl-key`, `idle-timeout`, `connect-timeout`, `server-timeout`. |
 
 ### Per-annotation YAML snippets
 
@@ -85,6 +87,23 @@ metadata:
     service.beta.kubernetes.io/managed-loadbalancer-idle-timeout: "3600"
     service.beta.kubernetes.io/managed-loadbalancer-port-5432-idle-timeout: "86400"
 ```
+
+```yaml
+# connect-timeout / server-timeout - migrating from nginx-ingress's
+# proxy-connect-timeout / proxy-read-timeout / proxy-send-timeout. A single
+# server-timeout covers both proxy-read-timeout and proxy-send-timeout, since
+# HAProxy has no separate read and send timeout.
+metadata:
+  annotations:
+    service.beta.kubernetes.io/managed-loadbalancer-connect-timeout: "10"
+    service.beta.kubernetes.io/managed-loadbalancer-server-timeout: "120"
+    # Per-port override for a slow upload endpoint on 8443:
+    service.beta.kubernetes.io/managed-loadbalancer-port-8443-server-timeout: "600"
+```
+
+> There is no `body-size` annotation. nginx-ingress's `proxy-body-size` exists
+> to raise its 1 MB default; HAProxy imposes no request-body limit at all, so
+> large uploads already work with no setting to look for.
 | `public-ip` | string | (auto) | Reserve a specific public IP (must be owned by the cluster's user). |
 | `vpc-only` | bool | `false` | If true, no public IP - VPC-internal only. |
 | `internal` | bool | `false` | VPC-internal LB, no public IP allocated. Equivalent to `vpc-only: true` or `public: false`; `vpc-only: true` combined with an explicit `public: true` is rejected with an Event. |
@@ -285,8 +304,9 @@ recreating the LB.
 Any global annotation can be overridden for a single frontend port using the
 pattern `<prefix>port-{N}-<key>`, where `{N}` is the `spec.ports[].port` value
 and `<key>` is one of: `backend-protocol`, `ssl-mode`, `ssl-domain`,
-`ssl-cert`, `ssl-key`, `idle-timeout`. If a per-port key is unset, the corresponding global
-annotation is used. If neither is set, the documented default applies.
+`ssl-cert`, `ssl-key`, `idle-timeout`, `connect-timeout`, `server-timeout`. If a per-port key is
+unset, the corresponding global annotation is used. If neither is set, the documented default
+applies.
 
 This lets a single Service expose plain TCP, Let's Encrypt-terminated HTTPS,
 inline-cert HTTPS, and another raw TCP port - all from one LB.
